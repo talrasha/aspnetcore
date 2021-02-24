@@ -33,7 +33,7 @@ using static Microsoft.AspNetCore.Server.Kestrel.Core.Tests.Http2TestBase;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
 {
-    public class Http3TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable
+    public abstract class Http3TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable
     {
         protected static readonly int MaxRequestHeaderFieldSize = 16 * 1024;
         protected static readonly string _4kHeaderValue = new string('a', 4096);
@@ -136,7 +136,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
                 }
             }
 
-            return null;
+            return _inboundControlStream;
         }
 
         internal async Task WaitForConnectionErrorAsync<TException>(bool ignoreNonGoAwayFrames, long expectedLastStreamId, Http3ErrorCode expectedErrorCode, params string[] expectedErrorMessage)
@@ -172,6 +172,21 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
             Assert.Equal(expectedLastStreamId, streamId);
         }
 
+        protected void AdvanceClock(TimeSpan timeSpan)
+        {
+            var clock = _serviceContext.MockSystemClock;
+            var endTime = clock.UtcNow + timeSpan;
+
+            while (clock.UtcNow + Heartbeat.Interval < endTime)
+            {
+                clock.UtcNow += Heartbeat.Interval;
+                _timeoutControl.Tick(clock.UtcNow);
+            }
+
+            clock.UtcNow = endTime;
+            _timeoutControl.Tick(clock.UtcNow);
+        }
+
         protected async Task InitializeConnectionAsync(RequestDelegate application)
         {
             if (Connection == null)
@@ -198,9 +213,6 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
 
         protected void CreateConnection()
         {
-            var limits = _serviceContext.ServerOptions.Limits;
-
-
             MultiplexedConnectionContext = new TestMultiplexedConnectionContext(this);
 
             var httpConnectionContext = new Http3ConnectionContext(
@@ -211,7 +223,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
                 memoryPool: _memoryPool,
                 localEndPoint: null,
                 remoteEndPoint: null);
-            httpConnectionContext.TimeoutControl = _mockTimeoutControl.Object;
+            httpConnectionContext.TimeoutControlCreator = c => _mockTimeoutControl.Object;
 
             Connection = new Http3Connection(httpConnectionContext);
             _mockTimeoutHandler.Setup(h => h.OnTimeout(It.IsAny<TimeoutReason>()))
@@ -401,6 +413,17 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
                 return done;
             }
 
+            internal async Task SendHeadersPartialAsync()
+            {
+                // Send HEADERS frame header without content.
+                var outputWriter = _pair.Application.Output;
+                var frame = new Http3RawFrame();
+                frame.PrepareData();
+                frame.Length = 10;
+                Http3FrameWriter.WriteHeader(frame, outputWriter);
+                await SendAsync(Span<byte>.Empty);
+            }
+
             internal async Task SendDataAsync(Memory<byte> data, bool endStream = false)
             {
                 var frame = new Http3RawFrame();
@@ -501,6 +524,12 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
             public Http3ControlStream(ConnectionContext streamContext)
             {
                 StreamContext = streamContext;
+            }
+
+            internal async Task ExpectSettingsAsync()
+            {
+                var http3WithPayload = await ReceiveFrameAsync();
+                Assert.Equal(Http3FrameType.Settings, http3WithPayload.Type);
             }
 
             public async Task WriteStreamIdAsync(int id)

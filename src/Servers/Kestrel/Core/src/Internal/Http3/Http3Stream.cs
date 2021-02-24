@@ -358,6 +358,12 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http3
 
         public async Task ProcessRequestAsync<TContext>(IHttpApplication<TContext> application) where TContext : notnull
         {
+            // Start request header timeout. Reset when headers are received by a request stream.
+            if (TimeoutControl.TimerReason == TimeoutReason.None)
+            {
+                TimeoutControl.SetTimeout(Limits.RequestHeadersTimeout.Ticks, TimeoutReason.RequestHeaders);
+            }
+
             Exception? error = null;
 
             try
@@ -524,6 +530,11 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http3
                 default:
                     Debug.Fail("Unexpected header parsing state.");
                     break;
+            }
+
+            if (TimeoutControl.TimerReason == TimeoutReason.RequestHeaders)
+            {
+                TimeoutControl.CancelTimeout();
             }
 
             InputRemaining = HttpRequestHeaders.ContentLength;

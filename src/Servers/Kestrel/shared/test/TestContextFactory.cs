@@ -78,8 +78,7 @@ namespace Microsoft.AspNetCore.Testing
             IFeatureCollection connectionFeatures = null,
             MemoryPool<byte> memoryPool = null,
             IPEndPoint localEndPoint = null,
-            IPEndPoint remoteEndPoint = null,
-            ITimeoutControl timeoutControl = null)
+            IPEndPoint remoteEndPoint = null)
         {
             var http3ConnectionContext = new Http3ConnectionContext(
                 "TestConnectionId",
@@ -89,7 +88,6 @@ namespace Microsoft.AspNetCore.Testing
                 memoryPool ?? PinnedBlockMemoryPoolFactory.Create(),
                 localEndPoint,
                 remoteEndPoint);
-            http3ConnectionContext.TimeoutControl = timeoutControl;
 
             return http3ConnectionContext;
         }

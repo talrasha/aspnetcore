@@ -1,6 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Buffers;
 using System.Net;
 using Microsoft.AspNetCore.Connections;
@@ -37,6 +38,9 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal
         public IPEndPoint? LocalEndPoint { get; }
         public IPEndPoint? RemoteEndPoint { get; }
 
-        public ITimeoutControl TimeoutControl { get; set; } = default!; // Always set by HttpConnection
+        /// <summary>
+        /// Will be be set by unit tests. If not set, default TimeoutControl is created.
+        /// </summary>
+        public Func<Http3Connection, ITimeoutControl>? TimeoutControlCreator { get; set; }
     }
 }
