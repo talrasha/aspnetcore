@@ -23,7 +23,13 @@
       <argument>ILLink</argument>
       <argument>IL2026</argument>
       <property name="Scope">member</property>
-      <property name="Target">M:Microsoft.AspNetCore.Components.RouteTableFactory.GetRouteableComponents(System.Collections.Generic.IEnumerable{System.Reflection.Assembly})</property>
+      <property name="Target">M:Microsoft.AspNetCore.Components.RouteTableFactory.&lt;GetRouteableComponents&gt;g__GetRouteableComponents|3_0(System.Collections.Generic.List{System.Type},System.Reflection.Assembly)</property>
+    </attribute>
+    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
+      <argument>ILLink</argument>
+      <argument>IL2062</argument>
+      <property name="Scope">member</property>
+      <property name="Target">M:Microsoft.AspNetCore.Components.RouteTableFactory.Create(System.Collections.Generic.Dictionary{System.Type,System.Collections.Generic.List{System.String}})</property>
     </attribute>
     <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
       <argument>ILLink</argument>
@@ -60,12 +66,6 @@
       <argument>IL2072</argument>
       <property name="Scope">member</property>
       <property name="Target">M:Microsoft.AspNetCore.Components.Reflection.ComponentProperties.SetProperties(Microsoft.AspNetCore.Components.ParameterView@,System.Object)</property>
-    </attribute>
-    <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
-      <argument>ILLink</argument>
-      <argument>IL2072</argument>
-      <property name="Scope">member</property>
-      <property name="Target">M:Microsoft.AspNetCore.Components.RouteTableFactory.Create(System.Collections.Generic.Dictionary{System.Type,System.String[]})</property>
     </attribute>
     <attribute fullname="System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessageAttribute">
       <argument>ILLink</argument>

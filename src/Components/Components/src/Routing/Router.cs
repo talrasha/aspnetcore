@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
@@ -36,7 +35,9 @@ namespace Microsoft.AspNetCore.Components.Routing
 
         private Task _previousOnNavigateTask = Task.CompletedTask;
 
-        private readonly HashSet<Assembly> _assemblies = new HashSet<Assembly>();
+        private HashSet<Assembly>? _legacyRouteTableAssemblies;
+
+        private RouteKey _currentRouteKey;
 
         private bool _onNavigateCalled = false;
 
@@ -152,17 +153,30 @@ namespace Microsoft.AspNetCore.Components.Routing
 
         private void RefreshRouteTable()
         {
+            if (!PreferExactMatches)
+            {
+                RefreshRouteTableLegacy();
+                return;
+            }
+
+            var routeKey = new RouteKey(AppAssembly, AdditionalAssemblies);
+
+            if (!routeKey.Equals(_currentRouteKey))
+            {
+                _currentRouteKey = routeKey;
+                Routes = RouteTableFactory.Create(routeKey);
+            }
+        }
+
+        private void RefreshRouteTableLegacy()
+        {
             var assemblies = AdditionalAssemblies == null ? new[] { AppAssembly } : new[] { AppAssembly }.Concat(AdditionalAssemblies);
             var assembliesSet = new HashSet<Assembly>(assemblies);
+            Routes = LegacyRouteTableFactory.Create(assemblies);
 
-            if (!_assemblies.SetEquals(assembliesSet))
-            {
-                Routes = PreferExactMatches
-                    ? RouteTableFactory.Create(assemblies)
-                    : LegacyRouteTableFactory.Create(assemblies);
-                _assemblies.Clear();
-                _assemblies.UnionWith(assembliesSet);
-            }
+            _legacyRouteTableAssemblies ??= new();
+            _legacyRouteTableAssemblies.Clear();
+            _legacyRouteTableAssemblies.UnionWith(assembliesSet);
         }
 
         internal virtual void Refresh(bool isNavigationIntercepted)
