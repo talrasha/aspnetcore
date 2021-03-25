@@ -56,13 +56,9 @@ namespace Microsoft.AspNetCore.Components.Routing
                 return AppAssembly.GetHashCode();
             }
 
-            var hash = new HashCode();
-            hash.Add(AppAssembly);
             // Producing a hash code that includes individual assemblies requires it to have a stable order.
             // We'll avoid the cost of sorting and simply include the number of assemblies instead.
-            hash.Add(AdditionalAssemblies.Count);
-
-            return hash.ToHashCode();
+            return HashCode.Combine(AppAssembly, AdditionalAssemblies.Count);
         }
     }
 }

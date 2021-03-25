@@ -70,7 +70,7 @@ namespace Microsoft.AspNetCore.Components
                 // RouteAttribute is defined as non-inherited, because inheriting a route attribute always causes an
                 // ambiguity. You end up with two components (base class and derived class) with the same route.
                 var routeAttributes = componentType.GetCustomAttributes<RouteAttribute>(inherit: false);
-                var templates = new List<string>();
+                var templates = new List<string>(routeAttributes.Length);
                 foreach (var attribute in routeAttributes)
                 {
                     templates.Add(attribute.Template);
