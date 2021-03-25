@@ -27,7 +27,16 @@ namespace Microsoft.AspNetCore.Components
 
         private static Type? ResolveType(Key key, Assembly[] assemblies)
         {
-            var assembly = Array.Find(assemblies, a => string.Equals(a.GetName().Name, key.Assembly, StringComparison.Ordinal));
+            Assembly? assembly = null;
+            for (var i = 0; i < assemblies.Length; i++)
+            {
+                var current = assemblies[i];
+                if (current.GetName().Name == key.Assembly)
+                {
+                    assembly = current;
+                    break;
+                }
+            }
 
             if (assembly == null)
             {
