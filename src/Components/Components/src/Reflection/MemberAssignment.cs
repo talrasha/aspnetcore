@@ -3,19 +3,21 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using static Microsoft.AspNetCore.Internal.LinkerFlags;
 
 namespace Microsoft.AspNetCore.Components.Reflection
 {
     internal class MemberAssignment
     {
-        public static IEnumerable<PropertyInfo> GetPropertiesIncludingInherited(
+        public static PropertyEnumerable GetPropertiesIncludingInherited(
             [DynamicallyAccessedMembers(Component)] Type type,
             BindingFlags bindingFlags)
         {
-            var dictionary = new Dictionary<string, List<PropertyInfo>>(StringComparer.Ordinal);
+            var dictionary = new Dictionary<string, OneOrMoreProperties>(StringComparer.Ordinal);
 
             Type? currentType = type;
 
@@ -26,29 +28,104 @@ namespace Microsoft.AspNetCore.Components.Reflection
                 {
                     if (!dictionary.TryGetValue(property.Name, out var others))
                     {
-                        others = new List<PropertyInfo>();
+                        others = new OneOrMoreProperties { Single = property };
                         dictionary.Add(property.Name, others);
                     }
-
-                    if (others.Exists(other => other.GetMethod?.GetBaseDefinition() == property.GetMethod?.GetBaseDefinition()))
+                    else if (!IsInheritedProperty(property, others))
                     {
-                        // This is an inheritance case. We can safely ignore the value of property since
-                        // we have seen a more derived value.
-                        continue;
+                        others.Add(property);
                     }
-
-                    others.Add(property);
                 }
 
                 currentType = currentType.BaseType;
             }
 
-            foreach (var list in dictionary.Values)
+            return new PropertyEnumerable(dictionary);
+        }
+
+        private static bool IsInheritedProperty(PropertyInfo property, OneOrMoreProperties others)
+        {
+            if (others.Single is not null)
             {
-                foreach (var property in list)
+                return others.Single.GetMethod?.GetBaseDefinition() == property.GetMethod?.GetBaseDefinition();
+            }
+
+            Debug.Assert(others.Many is not null);
+            foreach (var other in CollectionsMarshal.AsSpan(others.Many))
+            {
+                if (other.GetMethod?.GetBaseDefinition() == property.GetMethod?.GetBaseDefinition())
                 {
-                    yield return property;
+                    return true;
                 }
+            }
+
+            return false;
+        }
+
+        public struct OneOrMoreProperties
+        {
+            public PropertyInfo? Single;
+            public List<PropertyInfo>? Many;
+
+            public void Add(PropertyInfo property)
+            {
+                if (Many is null)
+                {
+                    Many ??= new() { Single! };
+                    Single = null;
+                }
+
+                Many.Add(property);
+            }
+        }
+
+        public ref struct PropertyEnumerable
+        {
+            private readonly PropertyEnumerator _enumerator;
+
+            public PropertyEnumerable(Dictionary<string, OneOrMoreProperties> dictionary)
+            {
+                _enumerator = new PropertyEnumerator(dictionary);
+            }
+
+            public PropertyEnumerator GetEnumerator() => _enumerator;
+        }
+
+        public ref struct PropertyEnumerator
+        {
+            // Do NOT make this readonly, or MoveNext will not work
+            private Dictionary<string, OneOrMoreProperties>.Enumerator _dictionaryEnumerator;
+            private Span<PropertyInfo>.Enumerator _spanEnumerator;
+
+            public PropertyEnumerator(Dictionary<string, OneOrMoreProperties> dictionary)
+            {
+                _dictionaryEnumerator = dictionary.GetEnumerator();
+                _spanEnumerator = Span<PropertyInfo>.Empty.GetEnumerator();
+            }
+
+            public PropertyInfo Current => _spanEnumerator.Current;
+
+            public bool MoveNext()
+            {
+                if (_spanEnumerator.MoveNext())
+                {
+                    return true;
+                }
+
+                if (!_dictionaryEnumerator.MoveNext())
+                {
+                    return false;
+                }
+
+                var oneOrMoreProperties = _dictionaryEnumerator.Current.Value;
+                var span = oneOrMoreProperties.Single is { } property ?
+                    MemoryMarshal.CreateSpan(ref property, 1) :
+                    CollectionsMarshal.AsSpan(oneOrMoreProperties.Many);
+
+                _spanEnumerator = span.GetEnumerator();
+                var moveNext = _spanEnumerator.MoveNext();
+                Debug.Assert(moveNext, "We expect this to at least have one item.");
+                return moveNext;
             }
         }
     }

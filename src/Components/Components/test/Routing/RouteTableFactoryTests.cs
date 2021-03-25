@@ -1028,7 +1028,7 @@ namespace Microsoft.AspNetCore.Components.Routing
                 {
                     var templatesByHandler = _routeTemplates
                         .GroupBy(rt => rt.Handler)
-                        .ToDictionary(group => group.Key, group => group.Select(g => g.Template).ToList());
+                        .ToDictionary(group => group.Key, group => group.Select(g => g.Template).ToArray());
                     return RouteTableFactory.Create(templatesByHandler);
                 }
                 catch (InvalidOperationException ex) when (ex.InnerException is InvalidOperationException)

@@ -62,18 +62,19 @@ namespace Microsoft.AspNetCore.Components
 
         internal static RouteTable Create(List<Type> componentTypes)
         {
-            var templatesByHandler = new Dictionary<Type, List<string>>();
+            var templatesByHandler = new Dictionary<Type, string[]>();
             foreach (var componentType in componentTypes)
             {
                 // We're deliberately using inherit = false here.
                 //
                 // RouteAttribute is defined as non-inherited, because inheriting a route attribute always causes an
                 // ambiguity. You end up with two components (base class and derived class) with the same route.
-                var routeAttributes = componentType.GetCustomAttributes<RouteAttribute>(inherit: false);
-                var templates = new List<string>(routeAttributes.Length);
-                foreach (var attribute in routeAttributes)
+                var routeAttributes = componentType.GetCustomAttributes(typeof(RouteAttribute), inherit: false);
+                var templates = new string[routeAttributes.Length];
+                for (var i = 0; i < routeAttributes.Length; i++)
                 {
-                    templates.Add(attribute.Template);
+                    var attribute = (RouteAttribute)routeAttributes[i];
+                    templates[i] = attribute.Template;
                 }
 
                 templatesByHandler.Add(componentType, templates);
@@ -81,14 +82,14 @@ namespace Microsoft.AspNetCore.Components
             return Create(templatesByHandler);
         }
 
-        internal static RouteTable Create(Dictionary<Type, List<string>> templatesByHandler)
+        internal static RouteTable Create(Dictionary<Type, string[]> templatesByHandler)
         {
             var routes = new List<RouteEntry>();
             foreach (var (type, templates) in templatesByHandler)
             {
                 var allRouteParameterNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var parsedTemplates = new (RouteTemplate, HashSet<string>)[templates.Count];
-                for (var i = 0; i < templates.Count; i++)
+                var parsedTemplates = new (RouteTemplate, HashSet<string>)[templates.Length];
+                for (var i = 0; i < templates.Length; i++)
                 {
                     var parsedTemplate = TemplateParser.ParseTemplate(templates[i]);
                     var parameterNames = GetParameterNames(parsedTemplate);

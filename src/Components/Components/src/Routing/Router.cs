@@ -170,7 +170,7 @@ namespace Microsoft.AspNetCore.Components.Routing
 
         private void RefreshRouteTableLegacy()
         {
-            var assemblies = AdditionalAssemblies == null ? new[] { AppAssembly } : new[] { AppAssembly }.Concat(AdditionalAssemblies);
+            var assemblies = AdditionalAssemblies == null ? new[] { AppAssembly } : AdditionalAssemblies.Prepend(AppAssembly);
             var assembliesSet = new HashSet<Assembly>(assemblies);
             Routes = LegacyRouteTableFactory.Create(assemblies);
 
