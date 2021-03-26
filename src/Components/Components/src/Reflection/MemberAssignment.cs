@@ -17,7 +17,7 @@ namespace Microsoft.AspNetCore.Components.Reflection
             [DynamicallyAccessedMembers(Component)] Type type,
             BindingFlags bindingFlags)
         {
-            var dictionary = new Dictionary<string, OneOrMoreProperties>(StringComparer.Ordinal);
+            var dictionary = new Dictionary<string, object>(StringComparer.Ordinal);
 
             Type? currentType = type;
 
@@ -28,12 +28,21 @@ namespace Microsoft.AspNetCore.Components.Reflection
                 {
                     if (!dictionary.TryGetValue(property.Name, out var others))
                     {
-                        others = new OneOrMoreProperties { Single = property };
-                        dictionary.Add(property.Name, others);
+                        dictionary.Add(property.Name, property);
                     }
                     else if (!IsInheritedProperty(property, others))
                     {
-                        others.Add(property);
+                        List<PropertyInfo> many;
+                        if (others is PropertyInfo single)
+                        {
+                            many = new List<PropertyInfo> { single };
+                            dictionary[property.Name] = many;
+                        }
+                        else
+                        {
+                            many = (List<PropertyInfo>)others;
+                        }
+                        many.Add(property);
                     }
                 }
 
@@ -43,15 +52,15 @@ namespace Microsoft.AspNetCore.Components.Reflection
             return new PropertyEnumerable(dictionary);
         }
 
-        private static bool IsInheritedProperty(PropertyInfo property, OneOrMoreProperties others)
+        private static bool IsInheritedProperty(PropertyInfo property, object others)
         {
-            if (others.Single is not null)
+            if (others is PropertyInfo single)
             {
-                return others.Single.GetMethod?.GetBaseDefinition() == property.GetMethod?.GetBaseDefinition();
+                return single.GetMethod?.GetBaseDefinition() == property.GetMethod?.GetBaseDefinition();
             }
 
-            Debug.Assert(others.Many is not null);
-            foreach (var other in CollectionsMarshal.AsSpan(others.Many))
+            var many = (List<PropertyInfo>)others;
+            foreach (var other in CollectionsMarshal.AsSpan(many))
             {
                 if (other.GetMethod?.GetBaseDefinition() == property.GetMethod?.GetBaseDefinition())
                 {
@@ -62,28 +71,11 @@ namespace Microsoft.AspNetCore.Components.Reflection
             return false;
         }
 
-        public struct OneOrMoreProperties
-        {
-            public PropertyInfo? Single;
-            public List<PropertyInfo>? Many;
-
-            public void Add(PropertyInfo property)
-            {
-                if (Many is null)
-                {
-                    Many ??= new() { Single! };
-                    Single = null;
-                }
-
-                Many.Add(property);
-            }
-        }
-
         public ref struct PropertyEnumerable
         {
             private readonly PropertyEnumerator _enumerator;
 
-            public PropertyEnumerable(Dictionary<string, OneOrMoreProperties> dictionary)
+            public PropertyEnumerable(Dictionary<string, object> dictionary)
             {
                 _enumerator = new PropertyEnumerator(dictionary);
             }
@@ -94,16 +86,27 @@ namespace Microsoft.AspNetCore.Components.Reflection
         public ref struct PropertyEnumerator
         {
             // Do NOT make this readonly, or MoveNext will not work
-            private Dictionary<string, OneOrMoreProperties>.Enumerator _dictionaryEnumerator;
+            private Dictionary<string, object>.Enumerator _dictionaryEnumerator;
             private Span<PropertyInfo>.Enumerator _spanEnumerator;
 
-            public PropertyEnumerator(Dictionary<string, OneOrMoreProperties> dictionary)
+            public PropertyEnumerator(Dictionary<string, object> dictionary)
             {
                 _dictionaryEnumerator = dictionary.GetEnumerator();
                 _spanEnumerator = Span<PropertyInfo>.Empty.GetEnumerator();
             }
 
-            public PropertyInfo Current => _spanEnumerator.Current;
+            public PropertyInfo Current
+            {
+                get
+                {
+                    if (_dictionaryEnumerator.Current.Value is PropertyInfo property)
+                    {
+                        return property;
+                    }
+
+                    return _spanEnumerator.Current;
+                }
+            }
 
             public bool MoveNext()
             {
@@ -118,11 +121,14 @@ namespace Microsoft.AspNetCore.Components.Reflection
                 }
 
                 var oneOrMoreProperties = _dictionaryEnumerator.Current.Value;
-                var span = oneOrMoreProperties.Single is { } property ?
-                    MemoryMarshal.CreateSpan(ref property, 1) :
-                    CollectionsMarshal.AsSpan(oneOrMoreProperties.Many);
+                if (oneOrMoreProperties is PropertyInfo)
+                {
+                    _spanEnumerator = Span<PropertyInfo>.Empty.GetEnumerator();
+                    return true;
+                }
 
-                _spanEnumerator = span.GetEnumerator();
+                var many = (List<PropertyInfo>)oneOrMoreProperties;
+                _spanEnumerator = CollectionsMarshal.AsSpan(many).GetEnumerator();
                 var moveNext = _spanEnumerator.MoveNext();
                 Debug.Assert(moveNext, "We expect this to at least have one item.");
                 return moveNext;
