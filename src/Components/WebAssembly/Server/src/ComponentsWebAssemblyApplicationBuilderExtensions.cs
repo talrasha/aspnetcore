@@ -47,7 +47,7 @@ namespace Microsoft.AspNetCore.Builder
                 {
                     context.Response.Headers.Append("Blazor-Environment", webHostEnvironment.EnvironmentName);
 
-                    await next();
+                    await next(context);
                 });
 
                 subBuilder.UseMiddleware<ContentEncodingNegotiator>();
