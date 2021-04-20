@@ -2613,6 +2613,25 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
         }
 
         [Fact]
+        public async Task HEADERS_Received_RequestLineLength_StreamError()
+        {
+            var headers = new[]
+            {
+                new KeyValuePair<string, string>(HeaderNames.Method, new string('A', 8192 / 2)),
+                new KeyValuePair<string, string>(HeaderNames.Path, "/" + new string('A', 8192 / 2)),
+                new KeyValuePair<string, string>(HeaderNames.Scheme, "http")
+            };
+
+            await InitializeConnectionAsync(_noopApplication);
+            await StartStreamAsync(1, headers, endStream: true);
+            await ExpectAsync(Http2FrameType.RST_STREAM, withLength: 4, withFlags: 0, withStreamId: 1);
+
+            await StopConnectionAsync(expectedLastStreamId: 1, ignoreNonGoAwayFrames: false);
+
+            Assert.Contains(LogMessages, m => m.Exception?.Message.Contains(CoreStrings.BadRequest_RequestLineTooLong) ?? false);
+        }
+
+        [Fact]
         public async Task PRIORITY_Received_StreamIdZero_ConnectionError()
         {
             await InitializeConnectionAsync(_noopApplication);

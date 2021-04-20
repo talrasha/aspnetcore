@@ -1952,7 +1952,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
 
         [Theory]
         [MemberData(nameof(DuplicatePseudoHeaderFieldData))]
-        public Task HEADERS_Received_HeaderBlockContainsDuplicatePseudoHeaderField_ConnectionError(IEnumerable<KeyValuePair<string, string>> headers)
+        public Task HEADERS_Received_HeaderBlockContainsDuplicatePseudoHeaderField_Error(IEnumerable<KeyValuePair<string, string>> headers)
         {
             return HEADERS_Received_InvalidHeaderFields_StreamError(headers, expectedErrorMessage: CoreStrings.HttpErrorDuplicatePseudoHeaderField);
         }
@@ -1972,7 +1972,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
 
         [Theory]
         [MemberData(nameof(PseudoHeaderFieldAfterRegularHeadersData))]
-        public Task HEADERS_Received_HeaderBlockContainsPseudoHeaderFieldAfterRegularHeaders_ConnectionError(IEnumerable<KeyValuePair<string, string>> headers)
+        public Task HEADERS_Received_HeaderBlockContainsPseudoHeaderFieldAfterRegularHeaders_Error(IEnumerable<KeyValuePair<string, string>> headers)
         {
             return HEADERS_Received_InvalidHeaderFields_StreamError(headers, expectedErrorMessage: CoreStrings.HttpErrorPseudoHeaderFieldAfterRegularHeaders);
         }
@@ -1989,7 +1989,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
 
         [Theory]
         [MemberData(nameof(MissingPseudoHeaderFieldData))]
-        public async Task HEADERS_Received_HeaderBlockDoesNotContainMandatoryPseudoHeaderField_StreamError(IEnumerable<KeyValuePair<string, string>> headers)
+        public async Task HEADERS_Received_HeaderBlockDoesNotContainMandatoryPseudoHeaderField_Error(IEnumerable<KeyValuePair<string, string>> headers)
         {
             var requestStream = await InitializeConnectionAndStreamsAsync(_noopApplication);
 
@@ -2000,7 +2000,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
         }
 
         [Fact]
-        public Task HEADERS_Received_HeaderBlockOverLimit_ConnectionError()
+        public Task HEADERS_Received_HeaderBlockOverLimit_Error()
         {
             // > 32kb
             var headers = new[]
@@ -2022,7 +2022,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
         }
 
         [Fact]
-        public Task HEADERS_Received_TooManyHeaders_ConnectionError()
+        public Task HEADERS_Received_TooManyHeaders_Error()
         {
             // > MaxRequestHeaderCount (100)
             var headers = new List<KeyValuePair<string, string>>();
@@ -2041,7 +2041,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
         }
 
         [Fact]
-        public Task HEADERS_Received_InvalidCharacters_ConnectionError()
+        public Task HEADERS_Received_InvalidCharacters_Error()
         {
             var headers = new[]
             {
@@ -2055,7 +2055,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
         }
 
         [Fact]
-        public Task HEADERS_Received_HeaderBlockContainsConnectionHeader_ConnectionError()
+        public Task HEADERS_Received_HeaderBlockContainsConnectionHeader_Error()
         {
             var headers = new[]
             {
@@ -2069,7 +2069,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
         }
         
         [Fact]
-        public Task HEADERS_Received_HeaderBlockContainsTEHeader_ValueIsNotTrailers_ConnectionError()
+        public Task HEADERS_Received_HeaderBlockContainsTEHeader_ValueIsNotTrailers_Error()
         {
             var headers = new[]
             {
@@ -2100,6 +2100,19 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests
             await requestStream.ExpectHeadersAsync();
 
             await requestStream.ExpectReceiveEndOfStream();
+        }
+
+        [Fact]
+        public Task HEADERS_Received_RequestLineLength_Error()
+        {
+            var headers = new[]
+            {
+                new KeyValuePair<string, string>(HeaderNames.Method, new string('A', 8192 / 2)),
+                new KeyValuePair<string, string>(HeaderNames.Path, "/" + new string('A', 8192 / 2)),
+                new KeyValuePair<string, string>(HeaderNames.Scheme, "http")
+            };
+
+            return HEADERS_Received_InvalidHeaderFields_StreamError(headers, CoreStrings.BadRequest_RequestLineTooLong, Http3ErrorCode.RequestRejected);
         }
     }
 }
